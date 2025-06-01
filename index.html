@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#00897B"/> <!-- Matches manifest -->
-    <title>2D Calc App</title>
+    <title>QR Calc App</title>
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> <!-- Material Icons -->
     <style>
@@ -304,7 +304,7 @@ pre {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> 
     <meta name="apple-mobile-web-app-title" content="2D Calc">
     <link rel="apple-touch-icon" href="icons/icon-192x192.png">
-</head>
+ </head>
 <body>
     <header class="app-bar">
         <h1 class="app-bar-title">2D Scanner</h1>
@@ -424,8 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDelimiter = ',';
     let currentFormula = 'A + B'; 
     let currentStream = null;
-    const { Parser } = exprEval; 
-    const codeReader = new ZXing.BrowserMultiFormatReader(); // ZXing reader
+    const { Parser } = exprEval;
+    const codeReader = new ZXing.BrowserQRCodeReader(); // ZXing QR Code reader
 
     function switchPage(pageName) {
         Object.keys(navItems).forEach(key => {
@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (appBarTitleElement) {
             if (pageName === 'scan') {
-                appBarTitleElement.textContent = '2D Scanner';
+                appBarTitleElement.textContent = 'QR Scanner';
             } else if (pageName === 'info') {
                 appBarTitleElement.textContent = 'Scan Details';
             } else if (pageName === 'settings') {

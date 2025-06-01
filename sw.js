@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qr-calc-app-v5'; // Incremented for this full code version
+const CACHE_NAME = 'qr-calc-app-v6'; // Incremented for this full code version
 const urlsToCache = [
   './', // Represents the root of your application, often resolves to index.html
   './index.html',
