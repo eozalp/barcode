@@ -448,13 +448,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('main').scrollTop = 0;
 
         if (pageName === 'scan' && !currentStream) {
-            startScanner();
+            startScanner().catch(error => {
+                console.error("Error during startScanner invocation from switchPage:", error);
+                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Critical scanner error. Check console.</p>';
+                if(camErrorElement) {
+                    camErrorElement.textContent = `Failed to initialize scanner: ${error.message}. Please ensure camera permissions are granted and no other app is using the camera.`;
+                    camErrorElement.style.display = 'block';
+                }
+            });
         } else if (pageName !== 'scan' && currentStream) {
             stopScanner(); 
         }
     }
 
     Object.keys(navItems).forEach(key => {
+        // Ensure elements exist before adding listeners
+        // This check is already in place, which is good.
         if (navItems[key]) {
             navItems[key].addEventListener('click', () => switchPage(key));
             navItems[key].addEventListener('keydown', (event) => { 
@@ -669,7 +678,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             if (pageContents.scan && pageContents.scan.classList.contains('active') && !currentStream) {
-                startScanner();
+                startScanner().catch(error => {
+                    console.error("Error during startScanner invocation from visibilitychange:", error);
+                    // Optionally, update UI here as well if scanner fails to restart
+                    if(scannerStatusElement && pageContents.scan.classList.contains('active')) {
+                        scannerStatusElement.innerHTML = '<p>Error restarting scanner. Check console.</p>';
+                    }
+                });
             }
         }
     });
