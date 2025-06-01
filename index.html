@@ -525,73 +525,100 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function startScanner() {
+        // Initial UI state
+        if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Initializing scanner...</p>';
+        if(camErrorElement) camErrorElement.style.display = 'none';
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            const msg = 'Camera access (getUserMedia) is not supported by your browser.';
+            console.error(msg);
             if(camErrorElement) {
-                camErrorElement.textContent = 'Camera access (getUserMedia) is not supported by your browser.';
+                camErrorElement.textContent = msg;
                 camErrorElement.style.display = 'block';
             }
-            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Camera access not supported.</p>';
-            return;
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Camera not supported.</p>';
+            return; // Exit early
         }
 
-        if(camErrorElement) camErrorElement.style.display = 'none';
-        if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Initializing camera...</p>';
+        let videoInputDevices;
+        try {
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Requesting camera list...</p>';
+            videoInputDevices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+        } catch (err) {
+            console.error("Error listing video input devices:", err);
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Could not list cameras.</p>';
+            if(camErrorElement) {
+                camErrorElement.textContent = `Error listing cameras: ${err.name} - ${err.message}. Please ensure camera permissions are granted.`;
+                camErrorElement.style.display = 'block';
+            }
+            return; // Exit early
+        }
+
+        if (videoInputDevices.length === 0) {
+            const msg = 'No video input devices found.';
+            console.warn(msg);
+            if(scannerStatusElement) scannerStatusElement.innerHTML = `<p>${msg}</p>`;
+            if(camErrorElement) {
+                camErrorElement.textContent = 'No camera detected on this device.';
+                camErrorElement.style.display = 'block';
+            }
+            return; // Exit early
+        }
+
+        // Prefer back camera if available
+        const backCamera = videoInputDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear'));
+        const selectedDeviceId = backCamera ? backCamera.deviceId : videoInputDevices[0].deviceId;
+        // console.log(`Attempting to use camera: ${selectedDeviceId}`, videoInputDevices.find(d => d.deviceId === selectedDeviceId)?.label);
+
+        if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Attempting to access camera...</p>';
         
         try {
-            // Get a list of video input devices
-            const videoInputDevices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-            let selectedDeviceId = undefined;
-
-            if (videoInputDevices.length > 0) {
-                // Prefer back camera if available
-                const backCamera = videoInputDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear'));
-                selectedDeviceId = backCamera ? backCamera.deviceId : videoInputDevices[0].deviceId;
-            } else {
-                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>No camera found.</p>';
-                return;
-            }
-            
-            // Start decoding from the selected video device
-            codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error, controls) => {
+            // The decodeFromVideoDevice promise resolves with controls when the stream is ready
+            // or rejects if it cannot access the camera with the given deviceId.
+            const controls = await codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error /*, innerControls */) => {
+                // This callback is for ongoing scanning results/errors, not initial setup.
                 if (result) {
                     // console.log('Scan successful:', result);
                     processBarcodeData(result.getText());
-                    // Optionally, briefly pause scanning or provide feedback
-                    // controls.stop(); // To stop scanning after one successful read
-                    // setTimeout(() => controls.play(), 2000); // Resume after 2s
                 }
                 if (error) {
-                    if (!(error instanceof ZXing.NotFoundException) && !(error instanceof ZXing.ChecksumException) && !(error instanceof ZXing.FormatException)) {
-                        console.error('ZXing decoding error:', error);
-                        // Avoid flooding UI with errors, only show persistent ones or critical ones
-                        // if(camErrorElement && pageContents.scan.classList.contains('active')) {
-                        //     camErrorElement.textContent = `Scanning Error: ${error.message}`;
-                        //     camErrorElement.style.display = 'block';
-                        // }
+                    // These are common and expected during scanning, don't show as critical UI errors unless they persist.
+                    if (!(error instanceof ZXing.NotFoundException) &&
+                        !(error instanceof ZXing.ChecksumException) &&
+                        !(error instanceof ZXing.FormatException)) {
+                        console.warn('ZXing continuous decoding error:', error);
+                        // Potentially update a less intrusive status indicator for minor scan errors
                     }
-                }
-            }).then(controls => {
-                 // 'controls' can be used to stop/start the video stream if needed
-                 // e.g., controls.stop();
-                 // We need to get the stream from the controls to manage it ourselves for stopping
-                if (videoElement.srcObject instanceof MediaStream) {
-                    currentStream = videoElement.srcObject;
-                }
-                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Scanning for barcodes...</p>';
-            }).catch(err => {
-                console.error("Error starting ZXing scanner: ", err);
-                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Could not start scanner.</p>';
-                if(camErrorElement) {
-                    camErrorElement.textContent = `Scanner Init Error: ${err.name} - ${err.message}. Ensure camera permissions.`;
-                    camErrorElement.style.display = 'block';
                 }
             });
 
-        } catch (err) { // Catch errors from listVideoInputDevices or other setup issues
-            console.error("Error accessing camera or listing devices: ", err);
+            // Successfully started the stream
+            if (videoElement.srcObject instanceof MediaStream) {
+                if (videoElement.srcObject instanceof MediaStream) {
+                    currentStream = videoElement.srcObject;
+                }
+            } else {
+                console.warn("Video stream not directly available on videoElement.srcObject after decodeFromVideoDevice resolved.");
+            }
+            
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Scanning for barcodes...</p>';
+            if(camErrorElement) camErrorElement.style.display = 'none'; // Hide previous errors if successful
+
+        } catch (err) { // Catches errors from decodeFromVideoDevice itself (e.g., camera access denied for the specific device)
+            console.error("Error starting ZXing scanner with decodeFromVideoDevice:", err);
             if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Could not access camera.</p>';
             if(camErrorElement) {
-                camErrorElement.textContent = `Camera Access Error: ${err.name} - ${err.message}.`;
+                let message = `Scanner Init Error: ${err.name} - ${err.message}.`;
+                if (err.name === 'NotAllowedError') {
+                    message += ' Please grant camera permission.';
+                } else if (err.name === 'NotFoundError') {
+                    message += ' Camera not found or disconnected.';
+                } else if (err.name === 'NotReadableError') {
+                    message += ' Camera is already in use or a hardware error occurred.';
+                } else {
+                    message += ' Check browser console for more details.';
+                }
+                camErrorElement.textContent = message;
                 camErrorElement.style.display = 'block';
             }
         }
