@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#00897B"/> <!-- Matches manifest -->
+    <title>2D Calc App</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"> <!-- Material Icons -->
+    <style>
+/* Reset and Base Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    margin: 0;
+    padding: 0;
+    display: flex;
+    height: 100vh; /* Full viewport height */
+    flex-direction: column;
+    line-height: 1.6;
+    background-color: var(--app-background-color);
+    color: var(--on-surface-color);
+    overscroll-behavior-y: contain; /* Prevents pull-to-refresh on body */
+}
+
+:root {
+    --primary-color: #00897B; /* Teal 700 */
+    --primary-variant-color: #00695C; /* Teal 800 */
+    --secondary-color: #FFCA28; /* Amber A400 */
+    --app-background-color: #F5F5F5; /* Grey 100 */
+    --surface-color: #FFFFFF;
+    --on-primary-color: #FFFFFF;
+    --on-surface-color: #000000;
+    --on-surface-medium-emphasis: rgba(0,0,0,0.6);
+    --on-surface-disabled: rgba(0,0,0,0.38);
+    --error-color: #B00020;
+    --app-bar-height: 56px;
+    --bottom-nav-height: 56px;
+    --border-radius-standard: 8px;
+    --border-radius-large: 12px;
+}
+
+/* App Bar */
+.app-bar {
+    background-color: var(--primary-color);
+    color: var(--on-primary-color);
+    height: var(--app-bar-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.app-bar-title {
+    margin: 0;
+    font-size: 1.25rem; /* Material headline6 */
+    font-weight: 500;
+}
+
+/* Main Content Area */
+main {
+    flex-grow: 1;
+    padding: 16px; /* Standard Material padding */
+    width: 100%;
+    box-sizing: border-box;
+    overflow-y: auto; /* Scrollable content */
+    padding-top: calc(var(--app-bar-height) + 16px);
+    padding-bottom: calc(var(--bottom-nav-height) + 16px);
+}
+
+/* Page Content (formerly Tab Content) */
+.page-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.page-content.active {
+    display: block;
+}
+
+/* Scanner Specific */
+.scanner-container { /* Renamed from qr-scanner-container */
+    position: relative;
+    width: 100%;
+    max-width: 320px; 
+    margin: 16px auto 24px; 
+    border: 2px solid var(--primary-variant-color); 
+    border-radius: var(--border-radius-large);
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    background-color: #333; /* Dark background for video area */
+}
+
+#scanner-video { /* Renamed from qr-video */
+    width: 100%;
+    height: auto;
+    display: block;
+    /* transform: scaleX(-1); // Uncomment if camera is mirrored and you want to unmirror */
+}
+
+#scanner-status p { /* Renamed from qr-status */
+    text-align: center;
+    color: var(--on-surface-medium-emphasis);
+    margin-top: 8px;
+}
+
+/* Material Card for Results & Settings Items */
+.card {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius-standard);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.card h3 {
+    font-size: 1rem; /* Material subtitle1 */
+    color: var(--on-surface-medium-emphasis);
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: var(--app-background-color);
+    padding: 12px; 
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    color: var(--on-surface-color);
+    font-size: 0.9rem;
+    font-family: "Roboto Mono", monospace; 
+}
+
+.error-message {
+    color: var(--error-color);
+    font-weight: 500; 
+    background-color: #FFEBEE; 
+    border-left: 4px solid var(--error-color);
+}
+
+/* Settings Specific */
+.setting-item {
+    margin-bottom: 24px; 
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 8px; 
+    font-size: 0.875rem; 
+    color: var(--on-surface-medium-emphasis);
+    font-weight: 500;
+}
+
+.text-field {
+    background-color: rgba(0,0,0,0.04);
+    border: none;
+    border-bottom: 1px solid rgba(0,0,0,0.42);
+    padding: 12px 16px;
+    border-radius: 4px 4px 0 0; 
+    font-size: 1rem;
+    outline: none;
+    box-shadow: none;
+    transition: border-bottom-color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--on-surface-color);
+}
+.text-field:hover {
+    background-color: rgba(0,0,0,0.08);
+    border-bottom-color: var(--on-surface-color);
+}
+.text-field:focus {
+    background-color: rgba(0,0,0,0.06);
+    border-bottom: 2px solid var(--primary-color);
+}
+
+#delimiter-input {
+    width: 70px; 
+    text-align: center;
+    display: inline-block;
+}
+#formula-input {
+    width: 100%;
+}
+
+/* Material Button */
+.button {
+    padding: 0 16px; 
+    background-color: var(--primary-color);
+    color: var(--on-primary-color);
+    border: none;
+    border-radius: var(--border-radius-standard); 
+    cursor: pointer;
+    font-size: 0.875rem; 
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    text-transform: uppercase;
+    font-weight: 500;
+    box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14), 0 3px 1px -2px rgba(0,0,0,0.12), 0 1px 5px 0 rgba(0,0,0,0.20);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    height: 36px;
+    text-decoration: none; 
+}
+.button:hover {
+    background-color: var(--primary-variant-color);
+    box-shadow: 0 3px 3px 0 rgba(0,0,0,0.14), 0 1px 7px 0 rgba(0,0,0,0.12), 0 3px 1px -1px rgba(0,0,0,0.20);
+}
+.button:active { 
+    box-shadow: 0 5px 5px -3px rgba(0,0,0,0.2),0 8px 10px 1px rgba(0,0,0,0.14),0 3px 14px 2px rgba(0,0,0,0.12);
+}
+
+#save-settings-button {
+    margin-top: 16px;
+}
+
+.info-box {
+    background-color: #E3F2FD; 
+    border-left: 4px solid #2196F3; 
+    padding: 12px 16px;
+    margin-top: 16px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: #0D47A1; 
+}
+.info-box p {
+    margin: 8px 0;
+}
+
+#settings-saved-message {
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-top: 16px;
+    text-align: center;
+}
+
+
+/* Bottom Navigation */
+.bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--bottom-nav-height);
+    background-color: var(--surface-color);
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+.bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0 10px;
+    color: var(--on-surface-medium-emphasis);
+    cursor: pointer;
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    -webkit-tap-highlight-color: transparent; 
+}
+.bottom-nav-item .material-icons {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+.bottom-nav-item-label {
+    font-size: 0.75rem; 
+}
+.bottom-nav-item.active {
+    color: var(--primary-color);
+}
+.bottom-nav-item:active { 
+    background-color: rgba(0,0,0,0.08);
+}
+
+/* Utility for screen readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+    </style>
+    <!-- Add to home screen for Safari on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> 
+    <meta name="apple-mobile-web-app-title" content="2D Calc">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+</head>
+<body>
+    <header class="app-bar">
+        <h1 class="app-bar-title">2D Scanner</h1>
+    </header>
+
+    <main>
+        <div id="content-scan" class="page-content active">
+            <div class="scanner-container">
+                <video id="scanner-video" playsinline aria-label="Barcode Scanner Video Feed"></video>
+                <!-- Canvas for potential future use (e.g., drawing bounding boxes), not used by ZXing for decoding -->
+                <!-- <canvas id="scanner-canvas" style="display: none;"></canvas> -->
+            </div>
+            <div id="scanner-status">
+                <p>Attempting to access camera...</p>
+                <p id="cam-error" class="error-message" style="display:none;"></p>
+            </div>
+
+            <div class="card results-section">
+                <h3>Formula Used:</h3>
+                <pre id="scan-formula-used">-</pre>
+            </div>
+            <div class="card results-section" id="calculation-result-card">
+                <h3>Calculation Result:</h3>
+                <pre id="scan-calculation-result">-</pre>
+            </div>
+            <div id="calculation-error" class="card error-message" style="display:none;">
+                <!-- Error message will be populated by JS -->
+            </div>
+        </div>
+
+        <div id="content-info" class="page-content">
+             <div class="card results-section">
+                <h3>Raw Barcode Data (Last Scan):</h3>
+                <pre id="scan-raw-data">No scan data yet.</pre>
+            </div>
+            <div class="card results-section">
+                <h3>Assigned Variables (Last Scan):</h3>
+                <pre id="scan-assigned-variables">-</pre>
+            </div>
+        </div>
+
+        <div id="content-settings" class="page-content">
+            <div class="card">
+                <div class="setting-item">
+                    <label for="delimiter-input">Delimiter Character:</label>
+                    <input type="text" id="delimiter-input" class="text-field" maxlength="1" value=",">
+                </div>
+                <div class="setting-item">
+                    <label for="formula-input">Calculation Formula (e.g., A + B / 2):</label>
+                    <input type="text" id="formula-input" class="text-field" placeholder="A + B">
+                </div>
+                <button id="save-settings-button" class="button">Save Settings</button>
+                <p id="settings-saved-message" style="display:none;">Settings saved!</p>
+            </div>
+            <div class="info-box">
+                <p><strong>How it works:</strong> Numbers from the scanned barcode (separated by the delimiter) will be assigned to variables A, B, C, etc., in order. Use these variables in your formula.</p>
+                <p>Example: If barcode is "10,20,5" and formula is "A * B - C", then A=10, B=20, C=5. Result = 10 * 20 - 5 = 195.</p>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div id="nav-scan" class="bottom-nav-item active" role="button" tabindex="0" aria-label="Scan Barcode">
+            <i class="material-icons" aria-hidden="true">qr_code_scanner</i> <!-- Icon remains generic for scanning -->
+            <span class="bottom-nav-item-label">Scan</span>
+        </div>
+        <div id="nav-info" class="bottom-nav-item" role="button" tabindex="0" aria-label="Scan Information">
+            <i class="material-icons" aria-hidden="true">info_outline</i>
+            <span class="bottom-nav-item-label">Info</span>
+        </div>
+        <div id="nav-settings" class="bottom-nav-item" role="button" tabindex="0" aria-label="Settings">
+            <i class="material-icons" aria-hidden="true">settings</i>
+            <span class="bottom-nav-item-label">Settings</span>
+        </div>
+    </nav>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/zxing-library.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/expr-eval@2.0.2/dist/bundle.min.js"></script>
+
+    <!-- Application Logic -->
+    <script>
+document.addEventListener('DOMContentLoaded', () => {
+    const navItems = {
+        scan: document.getElementById('nav-scan'), // Renamed from qr
+        info: document.getElementById('nav-info'),
+        settings: document.getElementById('nav-settings'),
+    };
+    const pageContents = {
+        scan: document.getElementById('content-scan'), // Renamed from content-qr
+        info: document.getElementById('content-info'),
+        settings: document.getElementById('content-settings'),
+    };
+
+    const videoElement = document.getElementById('scanner-video'); // Renamed
+    const scannerStatusElement = document.getElementById('scanner-status'); // Renamed
+    const camErrorElement = document.getElementById('cam-error');
+
+    // Elements on Scan Page
+    const scanFormulaUsedElement = document.getElementById('scan-formula-used');
+    const scanCalculationResultElement = document.getElementById('scan-calculation-result');
+    const calculationErrorElement = document.getElementById('calculation-error');
+    
+    // Elements on Info Page
+    const scanRawDataElement = document.getElementById('scan-raw-data');
+    const scanAssignedVariablesElement = document.getElementById('scan-assigned-variables');
+    
+    // Global/Shared Elements
+    const appBarTitleElement = document.querySelector('.app-bar-title');
+
+    // Settings Page Elements
+    const delimiterInput = document.getElementById('delimiter-input');
+    const formulaInput = document.getElementById('formula-input');
+    const saveSettingsButton = document.getElementById('save-settings-button');
+    const settingsSavedMessage = document.getElementById('settings-saved-message');
+
+    let currentDelimiter = ',';
+    let currentFormula = 'A + B'; 
+    let currentStream = null;
+    const { Parser } = exprEval; 
+    const codeReader = new ZXing.BrowserMultiFormatReader(); // ZXing reader
+
+    function switchPage(pageName) {
+        Object.keys(navItems).forEach(key => {
+            if (navItems[key]) navItems[key].classList.remove('active');
+            if (pageContents[key]) pageContents[key].classList.remove('active');
+        });
+        if (navItems[pageName]) navItems[pageName].classList.add('active');
+        if (pageContents[pageName]) pageContents[pageName].classList.add('active');
+
+        if (appBarTitleElement) {
+            if (pageName === 'scan') {
+                appBarTitleElement.textContent = '2D Scanner';
+            } else if (pageName === 'info') {
+                appBarTitleElement.textContent = 'Scan Details';
+            } else if (pageName === 'settings') {
+                appBarTitleElement.textContent = 'Settings';
+            }
+        }
+
+        document.querySelector('main').scrollTop = 0;
+
+        if (pageName === 'scan' && !currentStream) {
+            startScanner();
+        } else if (pageName !== 'scan' && currentStream) {
+            stopScanner(); 
+        }
+    }
+
+    Object.keys(navItems).forEach(key => {
+        if (navItems[key]) {
+            navItems[key].addEventListener('click', () => switchPage(key));
+            navItems[key].addEventListener('keydown', (event) => { 
+                if (event.key === 'Enter' || event.key === ' ') {
+                    switchPage(key);
+                }
+            });
+        }
+    });
+
+    function loadSettings() {
+        const savedDelimiter = localStorage.getItem('qrAppDelimiter');
+        if(delimiterInput) delimiterInput.value = currentDelimiter = savedDelimiter || ',';
+
+        const savedFormula = localStorage.getItem('qrAppFormula');
+        if(formulaInput) formulaInput.value = currentFormula = savedFormula || 'A + B';
+        
+        if(scanFormulaUsedElement) scanFormulaUsedElement.textContent = currentFormula;
+    }
+
+    function saveSettings() {
+        const newDelimiter = delimiterInput.value;
+        const newFormula = formulaInput.value.trim();
+        let settingsChanged = false;
+
+        if (newDelimiter && newDelimiter.length === 1) {
+            if (currentDelimiter !== newDelimiter) {
+                currentDelimiter = newDelimiter;
+                localStorage.setItem('qrAppDelimiter', currentDelimiter);
+                settingsChanged = true;
+            }
+        } else {
+            alert('Delimiter must be a single character.');
+            if(delimiterInput) delimiterInput.value = currentDelimiter; 
+        }
+
+        if (newFormula) {
+            if (currentFormula !== newFormula) {
+                currentFormula = newFormula;
+                localStorage.setItem('qrAppFormula', currentFormula);
+                if(scanFormulaUsedElement) scanFormulaUsedElement.textContent = currentFormula;
+                settingsChanged = true;
+            }
+        } else {
+            alert('Formula cannot be empty.');
+            if(formulaInput) formulaInput.value = currentFormula; 
+        }
+
+        if (settingsChanged) {
+            if(settingsSavedMessage) settingsSavedMessage.style.display = 'block';
+            setTimeout(() => {
+                if(settingsSavedMessage) settingsSavedMessage.style.display = 'none';
+            }, 2000);
+        }
+    }
+
+    if (saveSettingsButton) {
+        saveSettingsButton.addEventListener('click', saveSettings);
+    }
+
+    async function startScanner() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            if(camErrorElement) {
+                camErrorElement.textContent = 'Camera access (getUserMedia) is not supported by your browser.';
+                camErrorElement.style.display = 'block';
+            }
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Camera access not supported.</p>';
+            return;
+        }
+
+        if(camErrorElement) camErrorElement.style.display = 'none';
+        if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Initializing camera...</p>';
+        
+        try {
+            // Get a list of video input devices
+            const videoInputDevices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+            let selectedDeviceId = undefined;
+
+            if (videoInputDevices.length > 0) {
+                // Prefer back camera if available
+                const backCamera = videoInputDevices.find(device => device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear'));
+                selectedDeviceId = backCamera ? backCamera.deviceId : videoInputDevices[0].deviceId;
+            } else {
+                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>No camera found.</p>';
+                return;
+            }
+            
+            // Start decoding from the selected video device
+            codeReader.decodeFromVideoDevice(selectedDeviceId, videoElement, (result, error, controls) => {
+                if (result) {
+                    // console.log('Scan successful:', result);
+                    processBarcodeData(result.getText());
+                    // Optionally, briefly pause scanning or provide feedback
+                    // controls.stop(); // To stop scanning after one successful read
+                    // setTimeout(() => controls.play(), 2000); // Resume after 2s
+                }
+                if (error) {
+                    if (!(error instanceof ZXing.NotFoundException) && !(error instanceof ZXing.ChecksumException) && !(error instanceof ZXing.FormatException)) {
+                        console.error('ZXing decoding error:', error);
+                        // Avoid flooding UI with errors, only show persistent ones or critical ones
+                        // if(camErrorElement && pageContents.scan.classList.contains('active')) {
+                        //     camErrorElement.textContent = `Scanning Error: ${error.message}`;
+                        //     camErrorElement.style.display = 'block';
+                        // }
+                    }
+                }
+            }).then(controls => {
+                 // 'controls' can be used to stop/start the video stream if needed
+                 // e.g., controls.stop();
+                 // We need to get the stream from the controls to manage it ourselves for stopping
+                if (videoElement.srcObject instanceof MediaStream) {
+                    currentStream = videoElement.srcObject;
+                }
+                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Scanning for barcodes...</p>';
+            }).catch(err => {
+                console.error("Error starting ZXing scanner: ", err);
+                if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Could not start scanner.</p>';
+                if(camErrorElement) {
+                    camErrorElement.textContent = `Scanner Init Error: ${err.name} - ${err.message}. Ensure camera permissions.`;
+                    camErrorElement.style.display = 'block';
+                }
+            });
+
+        } catch (err) { // Catch errors from listVideoInputDevices or other setup issues
+            console.error("Error accessing camera or listing devices: ", err);
+            if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Could not access camera.</p>';
+            if(camErrorElement) {
+                camErrorElement.textContent = `Camera Access Error: ${err.name} - ${err.message}.`;
+                camErrorElement.style.display = 'block';
+            }
+        }
+    }
+
+    function stopScanner() {
+        codeReader.reset(); // Stops decoding and releases camera via ZXing
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+            currentStream = null;
+        }
+        if(videoElement) videoElement.srcObject = null; // Clear video source
+        if(scannerStatusElement) scannerStatusElement.innerHTML = '<p>Scanner stopped.</p>';
+    }
+
+    function processBarcodeData(data) { // Renamed from processQRData
+        if(scanRawDataElement) scanRawDataElement.textContent = data;
+        
+        if(calculationErrorElement) {
+            calculationErrorElement.style.display = 'none'; 
+            calculationErrorElement.textContent = '';
+        }
+
+        const parts = data.split(currentDelimiter);
+        const numbers = parts.map(part => parseFloat(part.trim())).filter(num => !isNaN(num));
+
+        if (numbers.length === 0) {
+            if(scanAssignedVariablesElement) scanAssignedVariablesElement.textContent = "No valid numbers found with current delimiter.";
+            if(scanCalculationResultElement) scanCalculationResultElement.textContent = "-";
+            return;
+        }
+
+        const scope = {};
+        let assignedVarsString = "";
+        for (let i = 0; i < numbers.length; i++) {
+            const varName = String.fromCharCode(65 + i); 
+            if (i < 26) { 
+                scope[varName] = numbers[i];
+                assignedVarsString += `${varName} = ${numbers[i]}${i < numbers.length - 1 ? ', ' : ''}`;
+            }
+        }
+        if(scanAssignedVariablesElement) scanAssignedVariablesElement.textContent = assignedVarsString || "No variables assigned (max 26).";
+        if(scanFormulaUsedElement) scanFormulaUsedElement.textContent = currentFormula;
+
+        if (!currentFormula) {
+            if(scanCalculationResultElement) scanCalculationResultElement.textContent = "No formula defined in settings.";
+            return;
+        }
+
+        try {
+            const expr = Parser.parse(currentFormula);
+            const result = expr.evaluate(scope);
+            if(scanCalculationResultElement) scanCalculationResultElement.textContent = typeof result === 'number' ? result.toLocaleString() : result;
+        } catch (e) {
+            console.error("Formula evaluation error:", e);
+            if(scanCalculationResultElement) scanCalculationResultElement.textContent = "Error";
+            if(calculationErrorElement) {
+                calculationErrorElement.textContent = `Calculation Error: ${e.message}. Check formula and available variables (A-Z).`;
+                calculationErrorElement.style.display = 'block';
+            }
+        }
+    }
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            let swPath = './sw.js'; 
+            navigator.serviceWorker.register(swPath)
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.error('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+
+    loadSettings();
+    switchPage('scan'); // Start with scan page
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            if (pageContents.scan && pageContents.scan.classList.contains('active') && currentStream) {
+                 stopScanner(); 
+            }
+        } else {
+            if (pageContents.scan && pageContents.scan.classList.contains('active') && !currentStream) {
+                startScanner();
+            }
+        }
+    });
+});
+    </script>
+</body>
+</html>
